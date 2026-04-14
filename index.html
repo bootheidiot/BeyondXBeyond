@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BeyondXBeyond</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Barlow+Condensed:wght@400;600;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --yellow: #FFE600;
+    --white: #F5F5F0;
+    --black: #0A0A0A;
+    --dark: #111111;
+    --gray: #1E1E1E;
+    --yellow-dim: #B8A600;
+    --scan: rgba(0,0,0,0.035);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: 'Barlow Condensed', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  /* CRT scanline */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg, var(--scan) 0px, var(--scan) 1px, transparent 1px, transparent 3px);
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; height: 56px;
+    background: var(--yellow);
+    position: relative;
+  }
+  header::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+    height: 3px; background: var(--black);
+  }
+  .logo {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 26px; color: var(--black); letter-spacing: -1px;
+  }
+  .logo em { font-style: normal; color: #444; }
+  .header-right { display: flex; align-items: center; gap: 20px; }
+  .live-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; color: var(--black); font-weight: 700; letter-spacing: 2px;
+  }
+  .live-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: #ff2222;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+  .clock { font-family: 'Share Tech Mono', monospace; font-size: 14px; color: var(--black); font-weight: 700; }
+
+  /* ── TICKER ── */
+  .ticker-bar {
+    background: var(--yellow); color: var(--black);
+    height: 30px; display: flex; align-items: center; overflow: hidden;
+  }
+  .ticker-label {
+    font-family: 'Black Han Sans', sans-serif; font-size: 12px;
+    background: var(--black); color: var(--yellow);
+    padding: 0 16px; height: 100%; display: flex; align-items: center;
+    flex-shrink: 0; letter-spacing: 1px;
+  }
+  .ticker-track { flex: 1; overflow: hidden; }
+  .ticker-content {
+    display: inline-block; white-space: nowrap;
+    font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 1px;
+    animation: ticker 35s linear infinite;
+  }
+  @keyframes ticker { 0%{transform:translateX(100vw)} 100%{transform:translateX(-100%)} }
+
+  /* ── LAYOUT ── */
+  .main { display: grid; grid-template-columns: 1fr 300px; min-height: calc(100vh - 86px); }
+
+  /* ── PLAYER SECTION ── */
+  .player-section { padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+  .now-tag { font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 3px; color: var(--yellow); }
+  .show-title { font-family: 'Black Han Sans', sans-serif; font-size: 40px; line-height: 1; color: var(--white); }
+  .show-ep { font-size: 15px; color: #777; font-weight: 600; letter-spacing: .5px; margin-top: 3px; }
+
+  /* video container */
+  .video-wrapper {
+    position: relative; width: 100%; padding-bottom: 56.25%;
+    background: #000; border: 2px solid var(--gray); overflow: hidden;
+  }
+  .video-wrapper iframe {
+    position: absolute; inset: 0; width: 100%; height: 100%; border: none;
+  }
+
+  /* overlay mask — blocks user interaction with the inner iframe
+     so they can't click to the source site */
+  .video-mask {
+    position: absolute; inset: 0; z-index: 5;
+    cursor: default;
+  }
+
+  /* bumper */
+  .bumper-screen {
+    position: absolute; inset: 0;
+    background: var(--black);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    z-index: 10;
+  }
+  .bumper-screen.hidden { display: none; }
+  .bumper-tag { font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 4px; color: var(--yellow); }
+  .bumper-bar { width: 60px; height: 3px; background: var(--yellow); }
+  .bumper-title { font-family: 'Black Han Sans', sans-serif; font-size: 48px; color: var(--white); text-align: center; padding: 0 32px; line-height: 1; }
+  .bumper-sub { font-size: 16px; color: #666; font-weight: 600; letter-spacing: 1px; }
+  .bumper-count { font-family: 'Share Tech Mono', monospace; font-size: 44px; color: var(--yellow); margin-top: 4px; }
+
+  /* placeholder for no video */
+  .no-video {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  }
+  .no-video-icon { font-size: 48px; filter: grayscale(1); opacity: .4; }
+  .no-video-text { font-family: 'Black Han Sans', sans-serif; font-size: 20px; color: #333; }
+  .no-video-sub { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: #2a2a2a; text-align: center; padding: 0 32px; line-height: 1.6; }
+
+  /* progress */
+  .progress-area { display: flex; flex-direction: column; gap: 7px; }
+  .progress-meta { display: flex; justify-content: space-between; font-family: 'Share Tech Mono', monospace; font-size: 11px; color: #555; }
+  .progress-track { height: 3px; background: var(--gray); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--yellow); border-radius: 2px; transition: width 1s linear; }
+
+  /* info strip */
+  .info-strip { display: flex; gap: 20px; padding: 12px 0; border-top: 1px solid var(--gray); border-bottom: 1px solid var(--gray); }
+  .info-chip { display: flex; flex-direction: column; gap: 1px; }
+  .ic-label { font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 2px; color: #444; text-transform: uppercase; }
+  .ic-value { font-size: 13px; font-weight: 700; color: var(--white); }
+
+  /* ── SIDEBAR ── */
+  .sidebar { background: var(--dark); border-left: 2px solid var(--gray); display: flex; flex-direction: column; }
+  .sidebar-head {
+    padding: 14px 18px; border-bottom: 2px solid var(--yellow);
+    font-family: 'Black Han Sans', sans-serif; font-size: 16px; color: var(--yellow); letter-spacing: 1px;
+  }
+  .schedule-list { flex: 1; overflow-y: auto; padding: 6px 0; }
+  .schedule-list::-webkit-scrollbar { width: 3px; }
+  .schedule-list::-webkit-scrollbar-track { background: var(--dark); }
+  .schedule-list::-webkit-scrollbar-thumb { background: var(--gray); }
+
+  .sched-item { padding: 10px 18px; border-left: 3px solid transparent; transition: background .15s; }
+  .sched-item.current { border-left-color: var(--yellow); background: rgba(255,230,0,.05); }
+  .sched-item.past { opacity: .35; }
+  .sched-item.is-bumper { opacity: .45; }
+  .si-time { font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--yellow-dim); margin-bottom: 2px; }
+  .si-show { font-size: 14px; font-weight: 700; color: var(--white); line-height: 1.2; }
+  .si-ep { font-size: 11px; color: #555; margin-top: 1px; }
+  .si-badge {
+    display: inline-block; margin-top: 4px;
+    font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 1px;
+    background: var(--yellow); color: var(--black); padding: 1px 6px; font-weight: 700;
+  }
+
+  /* ── EMPTY STATE ── */
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 14px; padding: 40px; text-align: center; }
+  .es-title { font-family: 'Black Han Sans', sans-serif; font-size: 24px; color: var(--yellow); }
+  .es-sub { font-size: 14px; color: #444; line-height: 1.5; }
+
+  /* ── MOBILE ── */
+  @media(max-width:768px) {
+    .main { grid-template-columns: 1fr; }
+    .sidebar { border-left: none; border-top: 2px solid var(--gray); max-height: 280px; }
+    .show-title { font-size: 26px; }
+    .bumper-title { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">BEYOND<em>×</em>BEYOND</div>
+  <div class="header-right">
+    <div class="live-badge"><div class="live-dot"></div>LIVE BROADCAST</div>
+    <div class="clock" id="clock">00:00:00</div>
+  </div>
+</header>
+
+<div class="ticker-bar">
+  <div class="ticker-label">ON AIR</div>
+  <div class="ticker-track"><div class="ticker-content" id="tickerContent">Loading…</div></div>
+</div>
+
+<div class="main">
+  <!-- PLAYER -->
+  <div class="player-section">
+    <div class="now-tag">▶ NOW BROADCASTING</div>
+    <div>
+      <div class="show-title" id="showTitle">Loading…</div>
+      <div class="show-ep" id="showEp"></div>
+    </div>
+
+    <div class="video-wrapper" id="videoWrapper">
+      <!-- Bumper -->
+      <div class="bumper-screen" id="bumperScreen">
+        <div class="bumper-tag">COMING UP NEXT</div>
+        <div class="bumper-bar"></div>
+        <div class="bumper-title" id="bumperNext">—</div>
+        <div class="bumper-sub" id="bumperNextEp"></div>
+        <div class="bumper-count" id="bumperCount">0:00</div>
+      </div>
+      <!-- Video injected here -->
+      <div id="playerContainer"></div>
+      <!-- Interaction mask -->
+      <div class="video-mask" id="videoMask" style="display:none;"></div>
+    </div>
+
+    <div class="progress-area">
+      <div class="progress-meta">
+        <span id="pElapsed">0:00 elapsed</span>
+        <span id="pRemaining">0:00 remaining</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="pFill" style="width:0%"></div></div>
+    </div>
+
+    <div class="info-strip">
+      <div class="info-chip"><div class="ic-label">Show</div><div class="ic-value" id="iShow">—</div></div>
+      <div class="info-chip"><div class="ic-label">Block</div><div class="ic-value" id="iBlock">—</div></div>
+      <div class="info-chip"><div class="ic-label">Up Next</div><div class="ic-value" id="iNext">—</div></div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-head">TONIGHT'S LINEUP</div>
+    <div class="schedule-list" id="schedList">
+      <div class="empty-state">
+        <div class="es-title">No Schedule</div>
+        <div class="es-sub">Open <strong>admin.html</strong> to build the lineup.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  BeyondXBeyond  —  BROADCAST ENGINE
+// ══════════════════════════════════════════
+
+let schedule = [];
+let lastSlotIdx = -1;
+
+function loadSchedule() {
+  try {
+    const raw = localStorage.getItem('bxb_schedule');
+    if (raw) schedule = JSON.parse(raw);
+    // Also try fetching schedule.json from same directory (for GitHub Pages)
+    else fetchScheduleJson();
+  } catch(e) { schedule = []; }
+}
+
+async function fetchScheduleJson() {
+  try {
+    const r = await fetch('./schedule.json');
+    if (r.ok) { schedule = await r.json(); buildSidebar(); update(); }
+  } catch(e) {}
+}
+
+function utcOffsetSeconds() {
+  const n = new Date();
+  return n.getUTCHours()*3600 + n.getUTCMinutes()*60 + n.getUTCSeconds();
+}
+
+function getCurrentSlot() {
+  if (!schedule.length) return null;
+  const offset = utcOffsetSeconds();
+  for (let i = 0; i < schedule.length; i++) {
+    const s = schedule[i];
+    if (offset >= s.startSecond && offset < s.startSecond + s.durationSeconds)
+      return { slot: s, index: i, elapsed: offset - s.startSecond };
+  }
+  return null;
+}
+
+function fmt(s) {
+  const m = Math.floor(s/60), sec = Math.floor(s%60);
+  return `${m}:${sec.toString().padStart(2,'0')}`;
+}
+
+function utcClockStr() {
+  const n = new Date();
+  return n.toUTCString().slice(17,25) + ' UTC';
+}
+
+function secToAmPm(total) {
+  const h = Math.floor(total/3600)%24, m = Math.floor((total%3600)/60);
+  const p = h>=12?'PM':'AM', h12 = (h%12)||12;
+  return `${h12}:${m.toString().padStart(2,'0')} ${p}`;
+}
+
+// ── Build sidebar ──
+function buildSidebar() {
+  const list = document.getElementById('schedList');
+  if (!schedule.length) {
+    list.innerHTML = `<div class="empty-state"><div class="es-title">No Schedule</div><div class="es-sub">Open <strong>admin.html</strong> to build the lineup.</div></div>`;
+    document.getElementById('tickerContent').textContent = 'No broadcast scheduled.';
+    return;
+  }
+  list.innerHTML = schedule.map((s,i) => {
+    if (s.type === 'bumper') return `<div class="sched-item is-bumper" id="si_${i}">
+      <div class="si-show" style="color:#444;font-style:italic;font-size:12px;">— ${s.bumperText||'Break'} —</div></div>`;
+    return `<div class="sched-item" id="si_${i}">
+      <div class="si-time">${secToAmPm(s.startSecond)} UTC</div>
+      <div class="si-show">${s.showName}</div>
+      <div class="si-ep">${s.episodeTitle||''}</div>
+    </div>`;
+  }).join('');
+  // Ticker
+  const shows = [...new Set(schedule.filter(s=>s.type!=='bumper').map(s=>s.showName))];
+  document.getElementById('tickerContent').textContent = shows.map(s=>`◆ ${s}`).join('  ') + '  ';
+}
+
+// ── Detect URL type ──
+function detectType(url) {
+  if (!url) return null;
+  if (/youtube-nocookie\.com\/embed\/|youtube\.com\/embed\//.test(url)) return 'youtube-embed';
+  if (/youtu\.be\/|youtube\.com\/watch/.test(url)) return 'youtube-watch';
+  if (/\.m3u8/.test(url)) return 'hls';
+  if (/\.mp4/.test(url)) return 'mp4';
+  if (/\.(webm|ogg)/.test(url)) return 'video';
+  return 'iframe';
+}
+
+function extractYtId(url) {
+  let m = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+  if (m) return m[1];
+  m = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+  if (m) return m[1];
+  m = url.match(/embed\/([a-zA-Z0-9_-]{11})/);
+  if (m) return m[1];
+  return null;
+}
+
+// ── Show video — multi-format ──
+function showVideo(slot, elapsed) {
+  const container = document.getElementById('playerContainer');
+  const mask = document.getElementById('videoMask');
+  container.innerHTML = '';
+  mask.style.display = 'none';
+
+  if (!slot.embedUrl) {
+    container.innerHTML = `<div class="no-video">
+      <div class="no-video-icon">📺</div>
+      <div class="no-video-text">NO SOURCE SET</div>
+      <div class="no-video-sub">Open admin.html and add an embed URL for this episode.<br>See the Source Guide tab for instructions.</div>
+    </div>`;
+    return;
+  }
+
+  const type = detectType(slot.embedUrl);
+  const seek = Math.floor(elapsed);
+
+  // ── YouTube ──
+  if (type === 'youtube-embed' || type === 'youtube-watch') {
+    const ytId = extractYtId(slot.embedUrl);
+    if (!ytId) { showIframe(slot.embedUrl, seek, container, mask); return; }
+    const src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&start=${seek}&controls=1&rel=0&modestbranding=1&enablejsapi=1`;
+    const iframe = makeIframe(src);
+    container.appendChild(iframe);
+    mask.style.display = 'none'; // YouTube controls are fine to show
+    return;
+  }
+
+  // ── HLS (.m3u8) ──
+  if (type === 'hls') {
+    const video = makeVideoEl(seek);
+    container.appendChild(video);
+    // Load HLS.js from CDN
+    if (window.Hls) {
+      startHls(video, slot.embedUrl, seek);
+    } else {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js';
+      s.onload = () => startHls(video, slot.embedUrl, seek);
+      document.head.appendChild(s);
+    }
+    return;
+  }
+
+  // ── Direct video (mp4/webm/ogg) ──
+  if (type === 'mp4' || type === 'video') {
+    const video = makeVideoEl(seek);
+    video.src = slot.embedUrl;
+    video.addEventListener('loadedmetadata', () => { video.currentTime = seek; video.play().catch(()=>{}); });
+    container.appendChild(video);
+    return;
+  }
+
+  // ── Generic iframe ──
+  showIframe(slot.embedUrl, seek, container, mask);
+}
+
+function makeIframe(src) {
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none;';
+  iframe.src = src;
+  iframe.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
+  iframe.allowFullscreen = true;
+  return iframe;
+}
+
+function makeVideoEl(seek) {
+  const video = document.createElement('video');
+  video.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;background:#000;';
+  video.controls = true;
+  video.autoplay = true;
+  video.setAttribute('playsinline', '');
+  return video;
+}
+
+function startHls(video, src, seek) {
+  if (Hls.isSupported()) {
+    const hls = new Hls();
+    hls.loadSource(src);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      video.currentTime = seek;
+      video.play().catch(()=>{});
+    });
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    // Safari native HLS
+    video.src = src;
+    video.addEventListener('loadedmetadata', () => { video.currentTime = seek; video.play().catch(()=>{}); });
+  }
+}
+
+function showIframe(url, seek, container, mask) {
+  // Append seek hint for players that support ?t= 
+  let src = url;
+  if (!src.includes('start=') && !src.includes('?t=') && !src.includes('&t=')) {
+    src += (src.includes('?') ? '&' : '?') + `t=${seek}`;
+  }
+  const iframe = makeIframe(src);
+  iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation allow-popups');
+  container.appendChild(iframe);
+  // Overlay mask to keep user in our UI
+  mask.style.display = 'block';
+  mask.title = 'Double-click for fullscreen';
+  mask.ondblclick = () => { container.querySelector('iframe')?.requestFullscreen?.(); };
+}
+
+function showBumper(nextSlot, secsLeft) {
+  document.getElementById('bumperScreen').classList.remove('hidden');
+  document.getElementById('playerContainer').innerHTML = '';
+  document.getElementById('videoMask').style.display = 'none';
+  document.getElementById('bumperNext').textContent = nextSlot ? nextSlot.showName : 'SIGN OFF';
+  document.getElementById('bumperNextEp').textContent = nextSlot ? (nextSlot.episodeTitle||'') : '';
+  document.getElementById('bumperCount').textContent = fmt(secsLeft);
+}
+function hideBumper() { document.getElementById('bumperScreen').classList.add('hidden'); }
+
+// ── Main update loop ──
+function update() {
+  document.getElementById('clock').textContent = utcClockStr();
+  if (!schedule.length) return;
+
+  const cur = getCurrentSlot();
+  if (!cur) {
+    document.getElementById('showTitle').textContent = 'OFF AIR';
+    document.getElementById('showEp').textContent = 'No broadcast right now.';
+    hideBumper();
+    return;
+  }
+
+  const { slot, index, elapsed } = cur;
+  const remaining = slot.durationSeconds - elapsed;
+
+  if (slot.type === 'bumper') {
+    const next = schedule.slice(index+1).find(s=>s.type!=='bumper');
+    document.getElementById('showTitle').textContent = slot.bumperText || 'BREAK';
+    document.getElementById('showEp').textContent = next ? `Up next: ${next.showName}` : '';
+    showBumper(next, remaining);
+  } else {
+    hideBumper();
+    if (index !== lastSlotIdx) {
+      document.getElementById('showTitle').textContent = slot.showName;
+      document.getElementById('showEp').textContent = slot.episodeTitle || '';
+      showVideo(slot, elapsed);
+      lastSlotIdx = index;
+    }
+  }
+
+  // Progress
+  const pct = (elapsed / slot.durationSeconds) * 100;
+  document.getElementById('pFill').style.width = pct + '%';
+  document.getElementById('pElapsed').textContent = fmt(elapsed) + ' elapsed';
+  document.getElementById('pRemaining').textContent = fmt(remaining) + ' remaining';
+
+  // Info strip
+  document.getElementById('iShow').textContent = slot.showName || '—';
+  document.getElementById('iBlock').textContent = slot.block || 'Main';
+  const next2 = schedule.slice(index+1).find(s=>s.type!=='bumper');
+  document.getElementById('iNext').textContent = next2 ? next2.showName : 'Sign Off';
+
+  // Sidebar highlight
+  document.querySelectorAll('.sched-item').forEach((el,i) => {
+    el.classList.remove('current','past');
+    if (i < index) el.classList.add('past');
+    if (i === index) {
+      el.classList.add('current');
+      el.querySelectorAll('.si-badge').forEach(b=>b.remove());
+      const b = document.createElement('div'); b.className='si-badge'; b.textContent='ON AIR';
+      el.appendChild(b);
+      el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    }
+  });
+}
+
+// Init
+loadSchedule();
+buildSidebar();
+update();
+setInterval(update, 1000);
+
+// Cross-tab schedule sync
+window.addEventListener('storage', e => {
+  if (e.key === 'bxb_schedule') {
+    try { schedule = JSON.parse(e.newValue) || []; } catch(x) {}
+    buildSidebar(); lastSlotIdx = -1; update();
+  }
+});
+</script>
+</body>
+</html>

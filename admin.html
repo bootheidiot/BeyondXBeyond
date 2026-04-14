@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BeyondXBeyond — Control Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Barlow+Condensed:wght@400;600;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --yellow: #FFE600;
+    --white: #F5F5F0;
+    --black: #0A0A0A;
+    --dark: #111111;
+    --gray: #1E1E1E;
+    --gray2: #2A2A2A;
+    --yellow-dim: #B8A600;
+    --red: #FF3333;
+    --green: #33FF88;
+    --blue: #44AAFF;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--black); color: var(--white); font-family: 'Barlow Condensed', sans-serif; min-height: 100vh; }
+
+  /* ── LOGIN ── */
+  #loginScreen {
+    position: fixed; inset: 0; background: var(--black);
+    display: flex; align-items: center; justify-content: center; z-index: 1000;
+  }
+  #loginScreen.hidden { display: none; }
+  .login-box {
+    width: 380px; border: 2px solid var(--yellow); padding: 48px 40px;
+    display: flex; flex-direction: column; gap: 22px;
+  }
+  .login-logo { font-family: 'Black Han Sans', sans-serif; font-size: 30px; color: var(--yellow); text-align: center; line-height: 1; }
+  .login-logo em { font-style: normal; color: #666; }
+  .login-sub { font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 3px; color: #444; text-align: center; }
+  .login-label { font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 2px; color: #666; margin-bottom: 6px; }
+  .login-input {
+    width: 100%; background: var(--gray); border: 1px solid #333; color: var(--white);
+    font-family: 'Share Tech Mono', monospace; font-size: 16px; padding: 13px 14px; outline: none;
+    transition: border-color .2s;
+  }
+  .login-input:focus { border-color: var(--yellow); }
+  .login-btn {
+    width: 100%; background: var(--yellow); color: var(--black); border: none;
+    font-family: 'Black Han Sans', sans-serif; font-size: 18px; letter-spacing: 2px;
+    padding: 15px; cursor: pointer; transition: opacity .15s;
+  }
+  .login-btn:hover { opacity: .85; }
+  .login-err { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--red); text-align: center; display: none; }
+  .login-err.show { display: block; }
+
+  /* ── ADMIN PANEL ── */
+  #adminPanel { display: none; }
+  #adminPanel.visible { display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* ── HEADER ── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; height: 56px; background: var(--yellow); flex-shrink: 0;
+  }
+  .logo { font-family: 'Black Han Sans', sans-serif; font-size: 20px; color: var(--black); letter-spacing: -1px; }
+  .logo em { font-style: normal; color: #555; }
+  .header-actions { display: flex; gap: 10px; align-items: center; }
+  .save-status { font-family: 'Share Tech Mono', monospace; font-size: 11px; padding: 4px 10px; }
+  .save-status.saved { color: var(--black); background: rgba(0,0,0,.1); }
+  .save-status.unsaved { color: var(--black); background: rgba(0,0,0,.15); font-weight: 700; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    font-family: 'Black Han Sans', sans-serif; font-size: 13px; letter-spacing: 1px;
+    padding: 8px 16px; border: none; cursor: pointer; transition: opacity .15s;
+  }
+  .btn:hover { opacity: .8; }
+  .btn-primary { background: var(--black); color: var(--yellow); }
+  .btn-danger { background: var(--red); color: var(--white); font-size: 11px; padding: 6px 12px; }
+  .btn-outline { background: transparent; color: var(--black); border: 2px solid var(--black); }
+  .btn-ghost {
+    background: transparent; color: #666; font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; padding: 6px 12px; border: 1px solid #2a2a2a; cursor: pointer;
+    transition: all .15s; letter-spacing: 1px;
+  }
+  .btn-ghost:hover { border-color: var(--yellow); color: var(--yellow); }
+  .btn-ghost.active { border-color: var(--yellow); color: var(--yellow); background: rgba(255,230,0,.05); }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex; background: var(--dark); border-bottom: 2px solid var(--gray); flex-shrink: 0;
+  }
+  .tab {
+    font-family: 'Black Han Sans', sans-serif; font-size: 14px; letter-spacing: 1px;
+    padding: 14px 24px; color: #444; cursor: pointer; border-bottom: 3px solid transparent;
+    margin-bottom: -2px; transition: all .15s;
+  }
+  .tab:hover { color: #888; }
+  .tab.active { color: var(--yellow); border-bottom-color: var(--yellow); }
+
+  /* ── MAIN LAYOUT ── */
+  .admin-body { display: grid; grid-template-columns: 400px 1fr; flex: 1; overflow: hidden; }
+
+  /* ── LEFT PANEL ── */
+  .left-panel {
+    background: var(--dark); border-right: 2px solid var(--gray);
+    display: flex; flex-direction: column; overflow-y: auto;
+  }
+  .left-panel::-webkit-scrollbar { width: 4px; }
+  .left-panel::-webkit-scrollbar-track { background: var(--dark); }
+  .left-panel::-webkit-scrollbar-thumb { background: var(--gray); }
+
+  .panel-section { padding: 20px 22px; border-bottom: 1px solid var(--gray); }
+  .section-title {
+    font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 3px;
+    color: #555; margin-bottom: 14px; text-transform: uppercase;
+  }
+
+  /* type toggle */
+  .type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid #2a2a2a; overflow: hidden; }
+  .type-btn {
+    padding: 10px; text-align: center; cursor: pointer;
+    font-family: 'Black Han Sans', sans-serif; font-size: 13px; color: #555;
+    background: var(--gray); border: none; transition: all .15s;
+  }
+  .type-btn.active { background: var(--yellow); color: var(--black); }
+
+  /* fields */
+  .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label { font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 2px; color: #555; }
+  .field input, .field select, .field textarea {
+    background: var(--gray2); border: 1px solid #2a2a2a; color: var(--white);
+    font-family: 'Barlow Condensed', sans-serif; font-size: 15px;
+    padding: 9px 11px; outline: none; width: 100%; transition: border-color .2s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--yellow); }
+  .field select option { background: var(--gray); }
+  .field textarea { resize: vertical; min-height: 55px; font-size: 13px; }
+  .field-hint { font-family: 'Share Tech Mono', monospace; font-size: 9px; color: #3a3a3a; margin-top: 2px; line-height: 1.5; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* URL preview */
+  .url-preview {
+    background: var(--gray); border: 1px solid #2a2a2a; padding: 10px 12px;
+    display: none; gap: 10px; align-items: center; margin-top: 6px;
+  }
+  .url-preview.show { display: flex; }
+  .url-preview-thumb { width: 72px; height: 41px; object-fit: cover; background: #222; flex-shrink: 0; }
+  .url-preview-info { flex: 1; min-width: 0; }
+  .url-preview-type { font-family: 'Share Tech Mono', monospace; font-size: 9px; color: var(--green); letter-spacing: 1px; }
+  .url-preview-src { font-size: 12px; color: #888; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+
+  /* add button */
+  .add-btn {
+    width: 100%; padding: 13px; background: var(--yellow); color: var(--black);
+    border: none; font-family: 'Black Han Sans', sans-serif; font-size: 16px;
+    letter-spacing: 2px; cursor: pointer; transition: opacity .15s;
+  }
+  .add-btn:hover { opacity: .85; }
+
+  /* quick bumpers */
+  .quick-bumpers { display: flex; flex-wrap: wrap; gap: 7px; }
+
+  /* ── RIGHT PANEL — TIMELINE ── */
+  .right-panel { display: flex; flex-direction: column; overflow: hidden; }
+  .timeline-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 22px; border-bottom: 1px solid var(--gray); flex-shrink: 0;
+  }
+  .timeline-title { font-family: 'Black Han Sans', sans-serif; font-size: 18px; color: var(--yellow); }
+  .timeline-meta { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: #555; }
+
+  .timeline-scroll { flex: 1; overflow-y: auto; padding: 12px 16px; }
+  .timeline-scroll::-webkit-scrollbar { width: 4px; }
+  .timeline-scroll::-webkit-scrollbar-track { background: var(--black); }
+  .timeline-scroll::-webkit-scrollbar-thumb { background: var(--gray); }
+
+  .timeline-empty {
+    border: 2px dashed #1a1a1a; padding: 60px; text-align: center;
+    color: #2a2a2a; font-family: 'Share Tech Mono', monospace; font-size: 12px; letter-spacing: 1px;
+  }
+
+  /* slot cards */
+  .slot-card {
+    display: grid; grid-template-columns: 70px 1fr auto;
+    align-items: center; gap: 12px;
+    padding: 11px 14px; background: var(--gray); margin-bottom: 5px;
+    border-left: 3px solid #2a2a2a; transition: border-color .15s;
+  }
+  .slot-card:hover { border-left-color: #444; }
+  .slot-card.is-show { border-left-color: var(--yellow); }
+  .slot-card.is-bumper { border-left-color: #2a2a2a; opacity: .65; }
+  .slot-card.is-show.no-src { border-left-color: var(--red); }
+
+  .sc-time { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--yellow-dim); white-space: nowrap; }
+  .sc-info { min-width: 0; }
+  .sc-title { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sc-sub { font-size: 11px; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+  .sc-src-badge {
+    font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 1px;
+    padding: 1px 5px; margin-left: 6px; vertical-align: middle;
+  }
+  .src-ok { background: rgba(51,255,136,.15); color: var(--green); border: 1px solid rgba(51,255,136,.3); }
+  .src-none { background: rgba(255,51,51,.12); color: var(--red); border: 1px solid rgba(255,51,51,.25); }
+  .sc-actions { display: flex; gap: 5px; flex-shrink: 0; }
+  .sc-btn {
+    font-family: 'Share Tech Mono', monospace; font-size: 11px;
+    background: transparent; color: #444; border: 1px solid #2a2a2a;
+    padding: 4px 8px; cursor: pointer; transition: all .15s;
+  }
+  .sc-btn:hover { border-color: var(--yellow); color: var(--yellow); }
+  .sc-btn.del:hover { border-color: var(--red); color: var(--red); }
+
+  /* ── GUIDE TAB ── */
+  .guide-panel { padding: 32px; overflow-y: auto; flex: 1; max-width: 820px; }
+  .guide-panel h2 { font-family: 'Black Han Sans', sans-serif; font-size: 26px; color: var(--yellow); margin-bottom: 8px; }
+  .guide-panel h3 { font-family: 'Black Han Sans', sans-serif; font-size: 18px; color: var(--white); margin: 24px 0 8px; }
+  .guide-panel p { font-size: 15px; color: #999; line-height: 1.6; margin-bottom: 10px; }
+  .guide-panel code {
+    font-family: 'Share Tech Mono', monospace; font-size: 12px;
+    background: var(--gray2); color: var(--yellow); padding: 2px 7px; border-radius: 2px;
+  }
+  .guide-panel pre {
+    background: var(--gray2); border: 1px solid #2a2a2a; padding: 16px;
+    font-family: 'Share Tech Mono', monospace; font-size: 12px; color: #aaa;
+    line-height: 1.7; overflow-x: auto; margin: 10px 0;
+  }
+  .guide-step {
+    display: flex; gap: 14px; margin-bottom: 14px; align-items: flex-start;
+  }
+  .step-num {
+    font-family: 'Black Han Sans', sans-serif; font-size: 22px; color: var(--yellow);
+    min-width: 32px; line-height: 1;
+  }
+  .step-body { flex: 1; }
+  .step-body strong { color: var(--white); font-weight: 700; }
+  .guide-divider { border: none; border-top: 1px solid var(--gray); margin: 28px 0; }
+  .source-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+  .source-table th {
+    font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 2px;
+    color: #555; text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--gray);
+  }
+  .source-table td { font-size: 14px; color: #888; padding: 8px 12px; border-bottom: 1px solid #1a1a1a; }
+  .source-table td:first-child { color: var(--white); font-weight: 700; }
+  .badge-green { background: rgba(51,255,136,.15); color: var(--green); font-family: 'Share Tech Mono', monospace; font-size: 10px; padding: 2px 7px; }
+  .badge-yellow { background: rgba(255,230,0,.1); color: var(--yellow); font-family: 'Share Tech Mono', monospace; font-size: 10px; padding: 2px 7px; }
+  .badge-red { background: rgba(255,51,51,.12); color: var(--red); font-family: 'Share Tech Mono', monospace; font-size: 10px; padding: 2px 7px; }
+
+  /* ── SETTINGS TAB ── */
+  .settings-panel { padding: 32px; max-width: 500px; }
+  .settings-panel h2 { font-family: 'Black Han Sans', sans-serif; font-size: 26px; color: var(--yellow); margin-bottom: 24px; }
+  .settings-group { background: var(--dark); border: 1px solid var(--gray); padding: 20px; margin-bottom: 16px; }
+  .settings-group-title { font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 2px; color: #555; margin-bottom: 14px; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--yellow); color: var(--black);
+    font-family: 'Black Han Sans', sans-serif; font-size: 15px;
+    padding: 13px 22px; transform: translateY(80px); opacity: 0;
+    transition: all .3s; z-index: 9999; pointer-events: none;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  @media(max-width:900px) {
+    .admin-body { grid-template-columns: 1fr; }
+    .left-panel { border-right: none; border-bottom: 2px solid var(--gray); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">BEYOND<em>×</em>BEYOND</div>
+    <div class="login-sub">CONTROL ROOM ACCESS</div>
+    <div>
+      <div class="login-label">PASSWORD</div>
+      <input type="password" class="login-input" id="pwInput" placeholder="Enter password"
+        onkeydown="if(event.key==='Enter')login()">
+    </div>
+    <button class="login-btn" onclick="login()">ENTER CONTROL ROOM</button>
+    <div class="login-err" id="loginErr">Wrong password. Try again.</div>
+  </div>
+</div>
+
+<!-- Admin Panel -->
+<div id="adminPanel">
+
+  <header>
+    <div class="logo">B<em>×</em>B — CONTROL ROOM</div>
+    <div class="header-actions">
+      <span class="save-status unsaved" id="saveStatus">● UNSAVED</span>
+      <button class="btn btn-primary" onclick="saveSchedule()">SAVE &amp; GO LIVE</button>
+      <button class="btn btn-outline" onclick="window.open('index.html','_blank')">PREVIEW</button>
+      <button class="btn-ghost" onclick="logout()">LOGOUT</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" id="tab-schedule" onclick="switchTab('schedule')">📋 SCHEDULE</div>
+    <div class="tab" id="tab-guide" onclick="switchTab('guide')">📖 SOURCE GUIDE</div>
+    <div class="tab" id="tab-settings" onclick="switchTab('settings')">⚙ SETTINGS</div>
+  </div>
+
+  <!-- SCHEDULE TAB -->
+  <div id="view-schedule" class="admin-body">
+
+    <!-- LEFT: Add slot -->
+    <div class="left-panel">
+
+      <div class="panel-section">
+        <div class="section-title">Slot Type</div>
+        <div class="type-toggle">
+          <button class="type-btn active" id="typeShowBtn" onclick="setType('show')">📺 SHOW</button>
+          <button class="type-btn" id="typeBumperBtn" onclick="setType('bumper')">📣 BUMPER</button>
+        </div>
+      </div>
+
+      <!-- SHOW FIELDS -->
+      <div id="showFields">
+        <div class="panel-section">
+          <div class="section-title">Show Info</div>
+          <div class="field">
+            <label>Show Name</label>
+            <input type="text" id="showName" placeholder="Cowboy Bebop" list="showSugg">
+            <datalist id="showSugg">
+              <option value="Cowboy Bebop"><option value="Hamtaro"><option value="Slayers">
+              <option value="Dragon Ball Z"><option value="Gundam Wing"><option value="Yu Yu Hakusho">
+              <option value="Rurouni Kenshin"><option value="Outlaw Star"><option value="The Big O">
+              <option value="Trigun"><option value="Tenchi Muyo"><option value="Sailor Moon">
+              <option value="InuYasha"><option value="Fullmetal Alchemist"><option value="Samurai Champloo">
+              <option value="FLCL"><option value="Neon Genesis Evangelion"><option value="Ghost in the Shell: SAC">
+              <option value="Paranoia Agent"><option value="Lupin III"><option value="Case Closed">
+            </datalist>
+          </div>
+          <div class="field">
+            <label>Episode Title / Number</label>
+            <input type="text" id="epTitle" placeholder="Ep 1 — Asteroid Blues">
+          </div>
+          <div class="field">
+            <label>Block Label</label>
+            <input type="text" id="blockLabel" placeholder="Toonami / Adult Swim / Main">
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="section-title">Video Source</div>
+          <div class="field">
+            <label>Embed URL</label>
+            <input type="text" id="embedUrl" placeholder="Paste embed/player URL here" oninput="previewUrl(this.value)">
+            <div class="field-hint">
+              YouTube, or a raw player URL from AniCrush/gogoanime/vidstreaming.<br>
+              See the <strong>Source Guide</strong> tab for how to find these URLs.
+            </div>
+          </div>
+          <div class="url-preview" id="urlPreview">
+            <img class="url-preview-thumb" id="previewThumb" src="" alt="">
+            <div class="url-preview-info">
+              <div class="url-preview-type" id="previewType">—</div>
+              <div class="url-preview-src" id="previewSrc">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <div class="section-title">Timing</div>
+          <div class="row2">
+            <div class="field">
+              <label>Duration — minutes</label>
+              <input type="number" id="durMin" value="22" min="0" max="300">
+            </div>
+            <div class="field">
+              <label>Duration — seconds</label>
+              <input type="number" id="durSec" value="0" min="0" max="59">
+            </div>
+          </div>
+          <div class="field">
+            <label>Start Time UTC (optional — blank = auto-follow)</label>
+            <input type="time" id="startTime" step="1">
+            <div class="field-hint">Leave blank to place immediately after the previous slot.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BUMPER FIELDS -->
+      <div id="bumperFields" style="display:none;">
+        <div class="panel-section">
+          <div class="section-title">Bumper Text</div>
+          <div class="field">
+            <label>Message</label>
+            <input type="text" id="bumperText" value="Coming up next...">
+          </div>
+          <div class="field">
+            <label>Duration (seconds)</label>
+            <input type="number" id="bumperDur" value="20" min="5" max="300">
+          </div>
+          <div class="field">
+            <label>Start Time UTC (optional)</label>
+            <input type="time" id="bumperStart" step="1">
+          </div>
+        </div>
+        <div class="panel-section">
+          <div class="section-title">Quick Insert</div>
+          <div class="quick-bumpers">
+            <button class="btn-ghost" onclick="quickBumper('Coming up next…', 15)">Coming Up</button>
+            <button class="btn-ghost" onclick="quickBumper('Don\'t touch that dial.', 10)">Don't Touch</button>
+            <button class="btn-ghost" onclick="quickBumper('We\'ll be right back.', 30)">Commercial</button>
+            <button class="btn-ghost" onclick="quickBumper('Stay tuned…', 12)">Stay Tuned</button>
+            <button class="btn-ghost" onclick="quickBumper('Right after this…', 20)">After This</button>
+            <button class="btn-ghost" onclick="quickBumper('Tonight on BeyondXBeyond…', 10)">Tonight On</button>
+            <button class="btn-ghost" onclick="quickBumper('Next — don\'t miss it.', 12)">Don't Miss It</button>
+            <button class="btn-ghost" onclick="quickBumper('You\'re watching BeyondXBeyond.', 8)">Station ID</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <button class="add-btn" onclick="addSlot()">+ ADD TO LINEUP</button>
+      </div>
+
+      <div class="panel-section">
+        <div class="section-title">Schedule File</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button class="btn-ghost" onclick="exportSchedule()">⬇ Export schedule.json</button>
+          <label class="btn-ghost" style="text-align:center;cursor:pointer;">
+            ⬆ Import schedule.json
+            <input type="file" accept=".json" style="display:none" onchange="importSchedule(this)">
+          </label>
+        </div>
+        <div class="field-hint" style="margin-top:10px;color:#2e2e2e;">
+          For GitHub Pages: export → commit schedule.json → index.html auto-fetches it.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: Timeline -->
+    <div class="right-panel">
+      <div class="timeline-header">
+        <div class="timeline-title">TONIGHT'S LINEUP</div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <div class="timeline-meta" id="tlMeta">0 slots</div>
+          <button class="btn btn-danger" onclick="clearAll()">CLEAR ALL</button>
+        </div>
+      </div>
+      <div class="timeline-scroll" id="timeline">
+        <div class="timeline-empty">No slots yet. Add a show or bumper on the left.</div>
+      </div>
+    </div>
+
+  </div><!-- /view-schedule -->
+
+  <!-- GUIDE TAB -->
+  <div id="view-guide" style="display:none;flex:1;overflow-y:auto;">
+  <div class="guide-panel">
+    <h2>Finding Video Source URLs</h2>
+    <p>BeyondXBeyond doesn't stream anything itself. You paste a player URL into the admin panel, and your viewers' browsers load that player directly — synced to your broadcast clock.</p>
+    <p>The trick is finding the <strong>raw player URL</strong> buried inside sites like AniCrush, rather than the page URL. Here's how.</p>
+
+    <hr class="guide-divider">
+    <h3>Method: Browser DevTools (works on any streaming site)</h3>
+
+    <div class="guide-step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Open the episode page</strong> on AniCrush (or gogoanime, zoro.to, etc.) and let the player load.
+      </div>
+    </div>
+    <div class="guide-step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        Press <code>F12</code> to open DevTools. Click the <strong>Elements</strong> tab.
+      </div>
+    </div>
+    <div class="guide-step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        Press <code>Ctrl+F</code> (search in elements) and type <code>iframe</code>. Look for an iframe whose <code>src</code> points to a player domain (examples below). That <code>src</code> value is your embed URL.
+      </div>
+    </div>
+    <div class="guide-step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        Alternatively use the <strong>Network tab</strong>: reload the page, filter by <code>Media</code> or search for <code>.m3u8</code> or <code>.mp4</code>. Right-click the request → Copy URL. These are the raw stream files.
+      </div>
+    </div>
+    <div class="guide-step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        Paste the URL into the admin panel's <strong>Embed URL</strong> field and set the correct duration.
+      </div>
+    </div>
+
+    <hr class="guide-divider">
+    <h3>Common Player Domains to Look For</h3>
+    <table class="source-table">
+      <tr><th>Domain</th><th>Found On</th><th>Embed-Friendly?</th></tr>
+      <tr><td>s3taku.com/embedplus</td><td>AniCrush, gogoanime</td><td><span class="badge-green">USUALLY YES</span></td></tr>
+      <tr><td>gogoanime CDN</td><td>AniCrush, gogoanime</td><td><span class="badge-yellow">SOMETIMES</span></td></tr>
+      <tr><td>vidstreaming.io</td><td>Various</td><td><span class="badge-yellow">SOMETIMES</span></td></tr>
+      <tr><td>streamtape.com</td><td>Various</td><td><span class="badge-yellow">SOMETIMES</span></td></tr>
+      <tr><td>youtube.com/embed/</td><td>YouTube</td><td><span class="badge-green">YES (full seek support)</span></td></tr>
+      <tr><td>youtu.be/ or ?v=</td><td>YouTube</td><td><span class="badge-green">YES (auto-converted)</span></td></tr>
+      <tr><td>anicrush.to (page)</td><td>AniCrush</td><td><span class="badge-red">NO (blocks iframes)</span></td></tr>
+    </table>
+
+    <hr class="guide-divider">
+    <h3>YouTube (Most Reliable)</h3>
+    <p>For classic shows, many full episodes are on YouTube. Just paste the regular video URL — BeyondXBeyond converts it automatically and seeks to the correct position.</p>
+    <pre>https://www.youtube.com/watch?v=XXXXXXXXXXX  ← paste as-is
+https://youtu.be/XXXXXXXXXXX                 ← also works</pre>
+
+    <hr class="guide-divider">
+    <h3>Raw .m3u8 or .mp4 URLs</h3>
+    <p>If you find a direct stream URL in the Network tab, BeyondXBeyond can play these using HLS.js (for .m3u8) or a native video element (for .mp4). Just paste them in — the player auto-detects the format.</p>
+    <pre>https://cdn.example.com/episode1/index.m3u8   ← HLS stream
+https://cdn.example.com/episode1/ep.mp4        ← Direct video</pre>
+    <p>Direct stream URLs often expire after a few hours, so for scheduled broadcasts plan to update them day-of.</p>
+
+    <hr class="guide-divider">
+    <h3>Sync Accuracy Notes</h3>
+    <p>BeyondXBeyond syncs using UTC time. When a viewer tunes in, their browser calculates how many seconds into the current slot it is and seeks the video to that point. YouTube embeds support exact seeking via the <code>?start=</code> parameter. Generic iframes receive a <code>?t=</code> hint but may not respond to it depending on the player — in those cases there may be a few seconds of drift on late joins.</p>
+    <p>For best sync accuracy: use YouTube sources where possible, and set episode durations precisely (minutes + seconds).</p>
+  </div>
+  </div><!-- /view-guide -->
+
+  <!-- SETTINGS TAB -->
+  <div id="view-settings" style="display:none;flex:1;overflow-y:auto;">
+  <div class="settings-panel">
+    <h2>Settings</h2>
+
+    <div class="settings-group">
+      <div class="settings-group-title">CHANGE PASSWORD</div>
+      <div class="field">
+        <label>New Password</label>
+        <input type="password" id="newPw" placeholder="Enter new password">
+      </div>
+      <div class="field">
+        <label>Confirm New Password</label>
+        <input type="password" id="newPw2" placeholder="Confirm new password">
+      </div>
+      <button class="btn btn-primary" style="margin-top:4px;" onclick="changePw()">UPDATE PASSWORD</button>
+      <div class="field-hint" style="margin-top:8px;">Default password is <code style="color:var(--yellow);background:var(--gray2);padding:1px 6px;font-family:'Share Tech Mono',monospace;">toonami2000</code></div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-group-title">BROADCAST TIMEZONE</div>
+      <p style="font-size:14px;color:#666;line-height:1.5;margin-bottom:12px;">
+        The broadcast clock always runs on UTC. This is what keeps all viewers in sync globally.
+        Design your schedule around UTC times — use the converter below to plan.
+      </p>
+      <div class="field">
+        <label>Your Local Time → UTC Offset</label>
+        <div id="tzInfo" style="font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--yellow);padding:10px;background:var(--gray2);"></div>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-group-title">DANGER ZONE</div>
+      <button class="btn btn-danger" onclick="nukePw()">RESET PASSWORD TO DEFAULT</button>
+      <div class="field-hint" style="margin-top:8px;color:#3a3a3a;">Resets to <code style="color:#555;font-family:'Share Tech Mono',monospace;">toonami2000</code></div>
+    </div>
+  </div>
+  </div><!-- /view-settings -->
+
+</div><!-- /adminPanel -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+//  BeyondXBeyond — ADMIN ENGINE
+// ══════════════════════════════════════════
+
+const DEFAULT_PW = 'toonami2000';
+let schedule = [];
+let slotType = 'show';
+let dirty = false;
+
+// ── AUTH ──
+function getPwHash() { return localStorage.getItem('bxb_pw') || btoa(DEFAULT_PW); }
+
+function login() {
+  const v = document.getElementById('pwInput').value;
+  if (btoa(v) === getPwHash()) {
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('adminPanel').classList.add('visible');
+    loadFromStorage();
+    renderTimeline();
+    updateTzInfo();
+  } else {
+    document.getElementById('loginErr').classList.add('show');
+    document.getElementById('pwInput').value = '';
+    document.getElementById('pwInput').focus();
+    setTimeout(() => document.getElementById('loginErr').classList.remove('show'), 3000);
+  }
+}
+
+function logout() {
+  if (dirty && !confirm('You have unsaved changes. Leave anyway?')) return;
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('adminPanel').classList.remove('visible');
+  document.getElementById('pwInput').value = '';
+}
+
+function changePw() {
+  const a = document.getElementById('newPw').value.trim();
+  const b = document.getElementById('newPw2').value.trim();
+  if (!a) { toast('Enter a new password.'); return; }
+  if (a !== b) { toast('Passwords don\'t match.'); return; }
+  if (a.length < 4) { toast('Password too short (4+ chars).'); return; }
+  localStorage.setItem('bxb_pw', btoa(a));
+  document.getElementById('newPw').value = '';
+  document.getElementById('newPw2').value = '';
+  toast('Password updated!');
+}
+
+function nukePw() {
+  if (!confirm('Reset password to default?')) return;
+  localStorage.removeItem('bxb_pw');
+  toast('Password reset to: toonami2000');
+}
+
+// ── TABS ──
+function switchTab(name) {
+  ['schedule','guide','settings'].forEach(t => {
+    document.getElementById(`tab-${t}`).classList.toggle('active', t === name);
+    const v = document.getElementById(`view-${t}`);
+    if (v) v.style.display = t === name ? (t === 'schedule' ? 'grid' : 'flex') : 'none';
+  });
+}
+
+// ── SLOT TYPE ──
+function setType(t) {
+  slotType = t;
+  document.getElementById('typeShowBtn').classList.toggle('active', t === 'show');
+  document.getElementById('typeBumperBtn').classList.toggle('active', t === 'bumper');
+  document.getElementById('showFields').style.display = t === 'show' ? 'block' : 'none';
+  document.getElementById('bumperFields').style.display = t === 'bumper' ? 'block' : 'none';
+}
+
+// ── URL DETECTION ──
+function detectUrlType(url) {
+  url = url.trim();
+  if (!url) return null;
+  if (/youtu\.be\/|youtube\.com/.test(url)) return 'youtube';
+  if (/\.m3u8/.test(url)) return 'hls';
+  if (/\.mp4/.test(url)) return 'mp4';
+  if (/\.(webm|ogg)/.test(url)) return 'video';
+  if (url.startsWith('http')) return 'iframe';
+  return null;
+}
+
+function extractYtId(url) {
+  let m = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+  if (m) return m[1];
+  m = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+  if (m) return m[1];
+  if (/^[a-zA-Z0-9_-]{11}$/.test(url.trim())) return url.trim();
+  return null;
+}
+
+function previewUrl(val) {
+  const preview = document.getElementById('urlPreview');
+  const type = detectUrlType(val);
+  if (!type) { preview.classList.remove('show'); return; }
+
+  document.getElementById('previewType').textContent = type.toUpperCase();
+  document.getElementById('previewSrc').textContent = val.length > 60 ? val.slice(0,57)+'…' : val;
+
+  if (type === 'youtube') {
+    const id = extractYtId(val);
+    if (id) {
+      document.getElementById('previewThumb').src = `https://img.youtube.com/vi/${id}/mqdefault.jpg`;
+      document.getElementById('previewThumb').style.display = 'block';
+    }
+  } else {
+    document.getElementById('previewThumb').style.display = 'none';
+  }
+  preview.classList.add('show');
+}
+
+// ── SCHEDULE LOGIC ──
+function parseTime(val) {
+  if (!val) return null;
+  const p = val.split(':');
+  return (parseInt(p[0])||0)*3600 + (parseInt(p[1])||0)*60 + (parseInt(p[2])||0);
+}
+
+function recalc() {
+  let cursor = schedule.length ? (schedule[0]._fixed ?? 0) : 0;
+  for (const s of schedule) {
+    if (s._fixed !== null && s._fixed !== undefined) cursor = s._fixed;
+    s.startSecond = cursor;
+    cursor += s.durationSeconds;
+  }
+}
+
+function secToHHMM(t) {
+  const h = Math.floor(t/3600)%24, m = Math.floor((t%3600)/60), s = Math.floor(t%60);
+  const p = h>=12?'PM':'AM', h12=(h%12)||12;
+  return `${h12}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')} ${p}`;
+}
+
+function addSlot() {
+  if (slotType === 'bumper') {
+    const text = document.getElementById('bumperText').value.trim() || "We'll be right back.";
+    const dur = parseInt(document.getElementById('bumperDur').value)||20;
+    const fixed = parseTime(document.getElementById('bumperStart').value);
+    schedule.push({ type:'bumper', showName: text, bumperText: text, durationSeconds: dur, _fixed: fixed, startSecond: 0 });
+    document.getElementById('bumperStart').value = '';
+  } else {
+    const name = document.getElementById('showName').value.trim();
+    if (!name) { toast('Enter a show name.'); return; }
+    const ep = document.getElementById('epTitle').value.trim();
+    const block = document.getElementById('blockLabel').value.trim() || 'Main';
+    const rawUrl = document.getElementById('embedUrl').value.trim();
+    const mins = parseInt(document.getElementById('durMin').value)||22;
+    const secs = parseInt(document.getElementById('durSec').value)||0;
+    const fixed = parseTime(document.getElementById('startTime').value);
+
+    // Normalize YouTube URLs to embed format
+    let embedUrl = rawUrl;
+    if (rawUrl) {
+      const ytId = extractYtId(rawUrl);
+      if (ytId) embedUrl = `https://www.youtube-nocookie.com/embed/${ytId}`;
+    }
+
+    schedule.push({
+      type: 'show', showName: name, episodeTitle: ep, block,
+      embedUrl, rawUrl,
+      durationSeconds: mins*60+secs,
+      _fixed: fixed, startSecond: 0
+    });
+
+    // Clear volatile fields
+    document.getElementById('epTitle').value = '';
+    document.getElementById('embedUrl').value = '';
+    document.getElementById('startTime').value = '';
+    document.getElementById('durMin').value = '22';
+    document.getElementById('durSec').value = '0';
+    document.getElementById('urlPreview').classList.remove('show');
+  }
+  recalc();
+  renderTimeline();
+  markDirty();
+  toast('Slot added!');
+}
+
+function quickBumper(text, dur) {
+  schedule.push({ type:'bumper', showName:text, bumperText:text, durationSeconds:dur, _fixed:null, startSecond:0 });
+  recalc(); renderTimeline(); markDirty();
+  toast(`Bumper: "${text}"`);
+}
+
+function removeSlot(i) {
+  schedule.splice(i,1); recalc(); renderTimeline(); markDirty();
+}
+
+function moveSlot(i, dir) {
+  const j = i+dir;
+  if (j<0||j>=schedule.length) return;
+  [schedule[i],schedule[j]] = [schedule[j],schedule[i]];
+  recalc(); renderTimeline(); markDirty();
+}
+
+function clearAll() {
+  if (!confirm('Clear the entire lineup?')) return;
+  schedule = []; renderTimeline(); markDirty();
+}
+
+// ── RENDER ──
+function renderTimeline() {
+  const tl = document.getElementById('timeline');
+  if (!schedule.length) {
+    tl.innerHTML = '<div class="timeline-empty">No slots yet. Add a show or bumper on the left.</div>';
+    document.getElementById('tlMeta').textContent = '0 slots';
+    return;
+  }
+  const total = schedule.reduce((a,s)=>a+s.durationSeconds,0);
+  const th = Math.floor(total/3600), tm = Math.floor((total%3600)/60);
+  document.getElementById('tlMeta').textContent = `${schedule.length} slots · ${th}h ${tm}m`;
+
+  tl.innerHTML = schedule.map((s,i) => {
+    const timeStr = secToHHMM(s.startSecond);
+    const dur = s.durationSeconds;
+    const durStr = `${Math.floor(dur/60)}m ${dur%60>0?dur%60+'s':''}`.trim();
+
+    if (s.type === 'bumper') return `<div class="slot-card is-bumper">
+      <div class="sc-time">${timeStr}</div>
+      <div class="sc-info">
+        <div class="sc-title" style="color:#555;font-style:italic;">— ${s.bumperText} —</div>
+        <div class="sc-sub">${durStr}</div>
+      </div>
+      <div class="sc-actions">
+        <button class="sc-btn" onclick="moveSlot(${i},-1)">▲</button>
+        <button class="sc-btn" onclick="moveSlot(${i},1)">▼</button>
+        <button class="sc-btn del" onclick="removeSlot(${i})">✕</button>
+      </div>
+    </div>`;
+
+    const hasSrc = !!s.embedUrl;
+    const srcBadge = hasSrc
+      ? `<span class="sc-src-badge src-ok">▶ ${detectUrlType(s.embedUrl)||'src'}</span>`
+      : `<span class="sc-src-badge src-none">NO SRC</span>`;
+    return `<div class="slot-card is-show${hasSrc?'':' no-src'}">
+      <div class="sc-time">${timeStr}</div>
+      <div class="sc-info">
+        <div class="sc-title">${s.showName} ${srcBadge}</div>
+        <div class="sc-sub">${s.episodeTitle||''} · ${durStr} · ${s.block}</div>
+      </div>
+      <div class="sc-actions">
+        <button class="sc-btn" onclick="moveSlot(${i},-1)">▲</button>
+        <button class="sc-btn" onclick="moveSlot(${i},1)">▼</button>
+        <button class="sc-btn del" onclick="removeSlot(${i})">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── SAVE / LOAD ──
+function saveSchedule() {
+  const clean = schedule.map(({_fixed,...r})=>r);
+  localStorage.setItem('bxb_schedule', JSON.stringify(clean));
+  markClean();
+  toast('Saved & broadcasting!');
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem('bxb_schedule');
+    if (raw) { schedule = JSON.parse(raw).map(s=>({...s,_fixed:null})); recalc(); }
+  } catch(e) { schedule=[]; }
+}
+
+function markDirty() { dirty=true; const el=document.getElementById('saveStatus'); el.textContent='● UNSAVED CHANGES'; el.className='save-status unsaved'; }
+function markClean() { dirty=false; const el=document.getElementById('saveStatus'); el.textContent='✓ LIVE'; el.className='save-status saved'; }
+
+// ── IMPORT / EXPORT ──
+function exportSchedule() {
+  const clean = schedule.map(({_fixed,...r})=>r);
+  const blob = new Blob([JSON.stringify(clean,null,2)],{type:'application/json'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='schedule.json'; a.click();
+  toast('Exported schedule.json');
+}
+
+function importSchedule(input) {
+  const file=input.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try {
+      schedule=JSON.parse(e.target.result).map(s=>({...s,_fixed:null}));
+      recalc(); renderTimeline(); markDirty();
+      toast(`Imported ${schedule.length} slots!`);
+    } catch(x) { toast('Invalid JSON.'); }
+  };
+  r.readAsText(file); input.value='';
+}
+
+// ── SETTINGS ──
+function updateTzInfo() {
+  const now = new Date();
+  const offset = -now.getTimezoneOffset();
+  const sign = offset>=0?'+':'-';
+  const oh = Math.floor(Math.abs(offset)/60), om = Math.abs(offset)%60;
+  const local = now.toLocaleTimeString();
+  const utc = now.toUTCString().slice(17,25);
+  document.getElementById('tzInfo').textContent =
+    `Local: ${local}  →  UTC: ${utc}\nYour offset: UTC${sign}${oh}:${om.toString().padStart(2,'0')}`;
+}
+
+// ── TOAST ──
+let toastT;
+function toast(msg) {
+  const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),2600);
+}
+
+window.addEventListener('beforeunload',e=>{ if(dirty){e.preventDefault();e.returnValue='';} });
+document.getElementById('pwInput').focus();
+</script>
+</body>
+</html>
