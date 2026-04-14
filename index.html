@@ -250,6 +250,9 @@
 //  BeyondXBeyond  —  BROADCAST ENGINE
 // ══════════════════════════════════════════
 
+// PST = UTC - 8hrs (fixed, no DST)
+const PST_OFFSET = 8 * 3600;
+
 let schedule = [];
 let lastSlotIdx = -1;
 
@@ -257,7 +260,6 @@ function loadSchedule() {
   try {
     const raw = localStorage.getItem('bxb_schedule');
     if (raw) schedule = JSON.parse(raw);
-    // Also try fetching schedule.json from same directory (for GitHub Pages)
     else fetchScheduleJson();
   } catch(e) { schedule = []; }
 }
@@ -269,6 +271,7 @@ async function fetchScheduleJson() {
   } catch(e) {}
 }
 
+// Schedule startSeconds are stored in UTC seconds since midnight
 function utcOffsetSeconds() {
   const n = new Date();
   return n.getUTCHours()*3600 + n.getUTCMinutes()*60 + n.getUTCSeconds();
@@ -290,18 +293,21 @@ function fmt(s) {
   return `${m}:${sec.toString().padStart(2,'0')}`;
 }
 
-function utcClockStr() {
-  const n = new Date();
-  return n.toUTCString().slice(17,25) + ' UTC';
+// Clock displays PST
+function clockStr() {
+  const pstMs = Date.now() - PST_OFFSET * 1000;
+  const p = new Date(pstMs);
+  return `${p.getUTCHours().toString().padStart(2,'0')}:${p.getUTCMinutes().toString().padStart(2,'0')}:${p.getUTCSeconds().toString().padStart(2,'0')} PST`;
 }
 
-function secToAmPm(total) {
-  const h = Math.floor(total/3600)%24, m = Math.floor((total%3600)/60);
-  const p = h>=12?'PM':'AM', h12 = (h%12)||12;
-  return `${h12}:${m.toString().padStart(2,'0')} ${p}`;
+// UTC seconds → PST "HH:MM" for sidebar
+function utcSecsToPstHHMM(utcSecs) {
+  const pst = ((utcSecs - PST_OFFSET) % 86400 + 86400) % 86400;
+  const h = Math.floor(pst/3600)%24, m = Math.floor((pst%3600)/60);
+  return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
 }
 
-// ── Build sidebar ──
+// ── Build sidebar — ad slots are hidden from viewers ──
 function buildSidebar() {
   const list = document.getElementById('schedList');
   if (!schedule.length) {
@@ -309,18 +315,22 @@ function buildSidebar() {
     document.getElementById('tickerContent').textContent = 'No broadcast scheduled.';
     return;
   }
-  list.innerHTML = schedule.map((s,i) => {
+  // Only show 'show' and 'bumper' types to viewers — ads are invisible
+  const visible = schedule.map((s, i) => ({ s, i })).filter(({ s }) => s.type !== 'ad');
+  list.innerHTML = visible.map(({ s, i }) => {
     if (s.type === 'bumper') return `<div class="sched-item is-bumper" id="si_${i}">
       <div class="si-show" style="color:#444;font-style:italic;font-size:12px;">— ${s.bumperText||'Break'} —</div></div>`;
     return `<div class="sched-item" id="si_${i}">
-      <div class="si-time">${secToAmPm(s.startSecond)} UTC</div>
+      <div class="si-time">${utcSecsToPstHHMM(s.startSecond)} PST</div>
       <div class="si-show">${s.showName}</div>
       <div class="si-ep">${s.episodeTitle||''}</div>
     </div>`;
   }).join('');
-  // Ticker
-  const shows = [...new Set(schedule.filter(s=>s.type!=='bumper').map(s=>s.showName))];
-  document.getElementById('tickerContent').textContent = shows.map(s=>`◆ ${s}`).join('  ') + '  ';
+  // Ticker — shows only
+  const shows = [...new Set(schedule.filter(s=>s.type==='show').map(s=>s.showName))];
+  document.getElementById('tickerContent').textContent = shows.length
+    ? shows.map(s=>`◆ ${s}`).join('  ') + '  '
+    : 'No broadcast scheduled.';
 }
 
 // ── Detect URL type ──
@@ -464,7 +474,7 @@ function hideBumper() { document.getElementById('bumperScreen').classList.add('h
 
 // ── Main update loop ──
 function update() {
-  document.getElementById('clock').textContent = utcClockStr();
+  document.getElementById('clock').textContent = clockStr();
   if (!schedule.length) return;
 
   const cur = getCurrentSlot();
@@ -479,10 +489,19 @@ function update() {
   const remaining = slot.durationSeconds - elapsed;
 
   if (slot.type === 'bumper') {
-    const next = schedule.slice(index+1).find(s=>s.type!=='bumper');
+    // Find next show (skip bumpers and ads)
+    const next = schedule.slice(index+1).find(s => s.type === 'show');
     document.getElementById('showTitle').textContent = slot.bumperText || 'BREAK';
     document.getElementById('showEp').textContent = next ? `Up next: ${next.showName}` : '';
     showBumper(next, remaining);
+  } else if (slot.type === 'ad') {
+    // Ad break — show video but display nothing on sidebar or title
+    hideBumper();
+    if (index !== lastSlotIdx) {
+      // Keep the previous show title visible during ad
+      showVideo(slot, elapsed);
+      lastSlotIdx = index;
+    }
   } else {
     hideBumper();
     if (index !== lastSlotIdx) {
@@ -493,28 +512,32 @@ function update() {
     }
   }
 
-  // Progress
+  // Progress bar
   const pct = (elapsed / slot.durationSeconds) * 100;
   document.getElementById('pFill').style.width = pct + '%';
   document.getElementById('pElapsed').textContent = fmt(elapsed) + ' elapsed';
   document.getElementById('pRemaining').textContent = fmt(remaining) + ' remaining';
 
-  // Info strip
-  document.getElementById('iShow').textContent = slot.showName || '—';
-  document.getElementById('iBlock').textContent = slot.block || 'Main';
-  const next2 = schedule.slice(index+1).find(s=>s.type!=='bumper');
-  document.getElementById('iNext').textContent = next2 ? next2.showName : 'Sign Off';
+  // Info strip — skip ads when showing "up next"
+  if (slot.type !== 'ad') {
+    document.getElementById('iShow').textContent = slot.showName || '—';
+    document.getElementById('iBlock').textContent = slot.block || '—';
+  }
+  // Up next — skip ad slots
+  const nextShow = schedule.slice(index+1).find(s => s.type === 'show');
+  document.getElementById('iNext').textContent = nextShow ? nextShow.showName : 'Sign Off';
 
-  // Sidebar highlight
-  document.querySelectorAll('.sched-item').forEach((el,i) => {
+  // Sidebar highlight — only on visible (non-ad) items
+  document.querySelectorAll('.sched-item').forEach(el => {
+    const elIdx = parseInt(el.id.replace('si_',''));
     el.classList.remove('current','past');
-    if (i < index) el.classList.add('past');
-    if (i === index) {
+    if (elIdx < index) el.classList.add('past');
+    if (elIdx === index) {
       el.classList.add('current');
-      el.querySelectorAll('.si-badge').forEach(b=>b.remove());
-      const b = document.createElement('div'); b.className='si-badge'; b.textContent='ON AIR';
+      el.querySelectorAll('.si-badge').forEach(b => b.remove());
+      const b = document.createElement('div'); b.className = 'si-badge'; b.textContent = 'ON AIR';
       el.appendChild(b);
-      el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   });
 }
