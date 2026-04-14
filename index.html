@@ -310,7 +310,7 @@ function utcSecsToPstHHMM(utcSecs) {
 function buildSidebar() {
   const list = document.getElementById('schedList');
   if (!schedule.length) {
-    list.innerHTML = `<div class="empty-state"><div class="es-title">No Schedule</div><div class="es-sub">Open <strong>admin.html</strong> to build the lineup.</div></div>`;
+    list.innerHTML = `<div class="empty-state"><div class="es-title">No Schedule</div>
     document.getElementById('tickerContent').textContent = 'No broadcast scheduled.';
     return;
   }
